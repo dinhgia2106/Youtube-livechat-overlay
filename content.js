@@ -162,6 +162,11 @@ function createOverlay() {
 
 function removeOverlay() {
   if (overlay) {
+    // Clear interval
+    if (overlay.chatInterval) {
+      clearInterval(overlay.chatInterval);
+    }
+    
     overlay.remove();
     overlay = null;
     chatContainer = null;
@@ -500,13 +505,61 @@ function startChatMonitoring() {
           messageText = msg.textContent || msg.innerText || '';
         }
         
-        const timestamp = new Date().toLocaleTimeString('en-US', { 
-          hour: '2-digit', 
-          minute: '2-digit' 
-        });
+        // Extract timestamp from chat message
+        let messageTime = '00:00';
+        const timestampSelectors = [
+          '.yt-live-chat-timestamp-renderer',
+          '[class*="timestamp"]',
+          '[id*="timestamp"]',
+          '.timestamp',
+          '#timestamp'
+        ];
+        
+        for (const selector of timestampSelectors) {
+          const timeEl = msg.querySelector(selector);
+          if (timeEl) {
+            const timeText = timeEl.textContent || timeEl.innerText || '';
+            // Extract time from text like "15:30" or "1:25:45"
+            const timeMatch = timeText.match(/(\d{1,2}:\d{2}(?::\d{2})?)/);
+            if (timeMatch) {
+              messageTime = timeMatch[1];
+              break;
+            }
+          }
+        }
+        
+        // If no timestamp found, try to extract from message text
+        if (messageTime === '00:00') {
+          const timeMatch = messageText.match(/(\d{1,2}:\d{2}(?::\d{2})?)/);
+          if (timeMatch) {
+            messageTime = timeMatch[1];
+          } else {
+            // Fallback to current video time
+            try {
+              const videoPlayer = document.querySelector('video');
+              if (videoPlayer && !isNaN(videoPlayer.currentTime)) {
+                const currentTime = videoPlayer.currentTime;
+                const hours = Math.floor(currentTime / 3600);
+                const minutes = Math.floor((currentTime % 3600) / 60);
+                const seconds = Math.floor(currentTime % 60);
+                
+                if (hours > 0) {
+                  messageTime = `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+                } else {
+                  messageTime = `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+                }
+              }
+            } catch (e) {
+              messageTime = new Date().toLocaleTimeString('en-US', { 
+                hour: '2-digit', 
+                minute: '2-digit' 
+              });
+            }
+          }
+        }
         
         return `<div style="margin-bottom: 8px; padding: 4px; border-bottom: 1px solid rgba(255,255,255,0.1);">
-          <span style="color: #888; font-size: 11px;">${timestamp}</span>
+          <span style="color: #888; font-size: 11px;">${messageTime}</span>
           ${authorName ? `<span style="color: #4CAF50; font-weight: bold; margin-left: 8px;">${authorName}:</span>` : ''}<br>
           <span style="color: white;">${messageText}</span>
         </div>`;
