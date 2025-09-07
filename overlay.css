@@ -133,6 +133,54 @@
   animation: newMessage 2s ease-out;
 }
 
+/* Super Chat animations */
+@keyframes superChatGlow {
+  0% {
+    box-shadow: 0 0 5px rgba(255, 215, 0, 0.5);
+  }
+  50% {
+    box-shadow: 0 0 20px rgba(255, 215, 0, 0.8);
+  }
+  100% {
+    box-shadow: 0 0 5px rgba(255, 215, 0, 0.5);
+  }
+}
+
+@keyframes superChatPulse {
+  0% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.02);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+.super-chat-message {
+  animation: superChatGlow 3s ease-in-out infinite, superChatPulse 2s ease-in-out infinite;
+}
+
+/* Paid message styles */
+.paid-message {
+  border-left: 4px solid #FF6B6B !important;
+}
+
+.membership-message {
+  border-left: 4px solid #4CAF50 !important;
+}
+
+/* Moderator styles */
+.moderator-message {
+  border-left: 4px solid #2196F3 !important;
+}
+
+/* Regular user styles */
+.regular-message {
+  border-left: 4px solid #666 !important;
+}
+
 /* Responsive design */
 @media (max-width: 1200px) {
   #youtube-chat-overlay {

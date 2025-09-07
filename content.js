@@ -441,13 +441,19 @@ function startChatMonitoring() {
         'yt-live-chat-text-message-renderer',
         'yt-live-chat-paid-message-renderer',
         'yt-live-chat-membership-item-renderer',
+        'yt-live-chat-super-chat-renderer',
+        'yt-live-chat-paid-sticker-renderer',
         '[id*="message"]',
         '[class*="message"]',
         '[class*="chat-message"]',
         '[class*="yt-live-chat"]',
+        '[class*="super-chat"]',
+        '[class*="paid-message"]',
         '.yt-live-chat-text-message-renderer',
         '.yt-live-chat-paid-message-renderer',
-        '.yt-live-chat-membership-item-renderer'
+        '.yt-live-chat-membership-item-renderer',
+        '.yt-live-chat-super-chat-renderer',
+        '.yt-live-chat-paid-sticker-renderer'
       ];
       
       let messages = [];
@@ -466,13 +472,42 @@ function startChatMonitoring() {
       
       // Display messages
       const messagesHTML = messages.slice(-50).map(msg => {
+        // Detect message type based on HTML structure
+        const isSuperChat = msg.tagName === 'YT-LIVE-CHAT-SUPER-CHAT-RENDERER' || 
+                           msg.classList.contains('yt-live-chat-super-chat-renderer') ||
+                           msg.classList.contains('super-chat') ||
+                           msg.querySelector('[class*="super-chat"]') ||
+                           msg.querySelector('#purchase-amount') ||
+                           msg.querySelector('.purchase-amount');
+        
+        const isPaidMessage = msg.tagName === 'YT-LIVE-CHAT-PAID-MESSAGE-RENDERER' || 
+                             msg.classList.contains('yt-live-chat-paid-message-renderer') ||
+                             msg.classList.contains('paid-message') ||
+                             msg.querySelector('[class*="paid-message"]') ||
+                             msg.querySelector('#purchase-amount') ||
+                             msg.querySelector('.purchase-amount');
+        
+        const isMembership = msg.tagName === 'YT-LIVE-CHAT-MEMBERSHIP-ITEM-RENDERER' || 
+                            msg.classList.contains('yt-live-chat-membership-item-renderer') ||
+                            msg.classList.contains('membership') ||
+                            msg.querySelector('[class*="membership"]') ||
+                            msg.querySelector('yt-live-chat-author-badge-renderer[type="member"]');
+        
+        // Detect moderator
+        const isModerator = msg.querySelector('yt-live-chat-author-badge-renderer[type="moderator"]') ||
+                           msg.querySelector('yt-live-chat-author-badge-renderer[type="owner"]') ||
+                           msg.querySelector('[class*="moderator"]') ||
+                           msg.querySelector('[class*="owner"]');
+        
         // Try to extract author name
         let authorName = '';
         const authorSelectors = [
           '#author-name',
           '.author-name',
           '[class*="author"]',
-          '[id*="author"]'
+          '[id*="author"]',
+          'yt-live-chat-author-chip #author-name',
+          '.yt-live-chat-author-chip #author-name'
         ];
         
         for (const selector of authorSelectors) {
@@ -496,23 +531,109 @@ function startChatMonitoring() {
           const textEl = msg.querySelector(selector);
           if (textEl) {
             messageText = textEl.textContent || textEl.innerText || '';
+            // Clean up the message text - remove timestamp and author name if duplicated
+            if (messageText) {
+              // Remove timestamp pattern (e.g., "4:07", "4:07cuong khac")
+              messageText = messageText.replace(/^\d{1,2}:\d{2}\s*/, '');
+              messageText = messageText.replace(/^\d{1,2}:\d{2}/, '');
+              
+              // Remove author name if it appears at the beginning
+              if (authorName && messageText.startsWith(authorName)) {
+                messageText = messageText.substring(authorName.length).trim();
+              }
+              
+              // Additional cleanup for patterns like "4:07cuong khac"
+              messageText = messageText.replace(/^\d{1,2}:\d{2}[a-zA-Z\s]+/, '');
+              
+              // Remove common prefixes that might be duplicated
+              messageText = messageText.replace(/^(MEMBER|MOD|SUPER CHAT|PAID)\s*/, '');
+              
+              // Trim whitespace
+              messageText = messageText.trim();
+              
+              // If after cleanup, message is empty or just special characters, mark as empty
+              if (messageText === '' || messageText.match(/^[^\w\s]*$/)) {
+                messageText = '';
+              }
+            }
             break;
           }
         }
         
         // Fallback to full text if no specific selectors found
         if (!messageText) {
-          messageText = msg.textContent || msg.innerText || '';
+          let fullText = msg.textContent || msg.innerText || '';
+          // Clean up the full text
+          if (fullText) {
+            // Remove timestamp pattern (e.g., "4:07", "4:07cuong khac")
+            fullText = fullText.replace(/^\d{1,2}:\d{2}\s*/, '');
+            fullText = fullText.replace(/^\d{1,2}:\d{2}/, '');
+            
+            // Remove author name if it appears at the beginning
+            if (authorName && fullText.startsWith(authorName)) {
+              fullText = fullText.substring(authorName.length).trim();
+            }
+            
+            // Additional cleanup for patterns like "4:07cuong khac"
+            fullText = fullText.replace(/^\d{1,2}:\d{2}[a-zA-Z\s]+/, '');
+            
+            // Remove common prefixes that might be duplicated
+            fullText = fullText.replace(/^(MEMBER|MOD|SUPER CHAT|PAID)\s*/, '');
+            
+            // Trim whitespace
+            fullText = fullText.trim();
+            
+            // If after cleanup, message is empty or just special characters, mark as empty
+            if (fullText === '' || fullText.match(/^[^\w\s]*$/)) {
+              fullText = '';
+            }
+            
+            messageText = fullText;
+          }
+        }
+        
+        // Extract Super Chat amount
+        let superChatAmount = '';
+        if (isSuperChat || isPaidMessage) {
+          const amountSelectors = [
+            '#purchase-amount',
+            '.purchase-amount',
+            '.yt-live-chat-paid-message-renderer-amount',
+            '[class*="amount"]',
+            '[class*="price"]',
+            '[class*="super-chat-amount"]',
+            'yt-formatted-string'
+          ];
+          
+          for (const selector of amountSelectors) {
+            const amountEl = msg.querySelector(selector);
+            if (amountEl) {
+              const amountText = amountEl.textContent || amountEl.innerText || '';
+              // Check if it contains currency symbols or numbers
+              if (amountText.match(/[\d,]+.*[₫$€£¥]|[\d,]+.*USD|[\d,]+.*VND/i)) {
+                superChatAmount = amountText;
+                break;
+              }
+            }
+          }
+          
+          // Try to extract from message text if no amount element found
+          if (!superChatAmount) {
+            const amountMatch = messageText.match(/[\d,]+.*[₫$€£¥]|[\d,]+.*USD|[\d,]+.*VND|\$[\d,]+|\d+\.\d+\s*\$/i);
+            if (amountMatch) {
+              superChatAmount = amountMatch[0];
+            }
+          }
         }
         
         // Extract timestamp from chat message
         let messageTime = '00:00';
         const timestampSelectors = [
+          '#timestamp',
+          '.timestamp',
           '.yt-live-chat-timestamp-renderer',
           '[class*="timestamp"]',
-          '[id*="timestamp"]',
-          '.timestamp',
-          '#timestamp'
+          '[id*="timestamp"]'
         ];
         
         for (const selector of timestampSelectors) {
@@ -558,9 +679,81 @@ function startChatMonitoring() {
           }
         }
         
-        return `<div style="margin-bottom: 8px; padding: 4px; border-bottom: 1px solid rgba(255,255,255,0.1);">
-          <span style="color: #888; font-size: 11px;">${messageTime}</span>
-          ${authorName ? `<span style="color: #4CAF50; font-weight: bold; margin-left: 8px;">${authorName}:</span>` : ''}<br>
+        // Determine styling based on message type and user role
+        let messageStyle = 'margin-bottom: 8px; padding: 4px; border-bottom: 1px solid rgba(255,255,255,0.1);';
+        let authorColor = '#FFFFFF'; // Default white for regular users
+        let badge = '';
+        let messageClass = '';
+        
+        // Set user role colors and classes
+        if (isModerator) {
+          authorColor = '#2196F3'; // Blue for moderators
+          badge = '<span style="background: #2196F3; color: white; padding: 2px 6px; border-radius: 4px; font-size: 10px; font-weight: bold; margin-right: 6px;">MOD</span>';
+          messageClass = 'moderator-message';
+        } else if (isMembership) {
+          authorColor = '#4CAF50'; // Green for members
+          badge = '<span style="background: #4CAF50; color: white; padding: 2px 6px; border-radius: 4px; font-size: 10px; font-weight: bold; margin-right: 6px;">MEMBER</span>';
+          messageClass = 'membership-message';
+        } else {
+          // Regular user
+          messageClass = 'regular-message';
+        }
+        
+        // Override for special message types
+        if (isSuperChat) {
+          messageStyle = 'margin-bottom: 8px; padding: 8px; border: 2px solid #FFD700; border-radius: 8px; background: linear-gradient(135deg, rgba(255,215,0,0.2), rgba(255,165,0,0.1));';
+          authorColor = '#FFD700';
+          badge = '<span style="background: #FFD700; color: #000; padding: 2px 6px; border-radius: 4px; font-size: 10px; font-weight: bold; margin-right: 6px;">SUPER CHAT</span>';
+          messageClass = 'super-chat-message';
+        } else if (isPaidMessage) {
+          messageStyle = 'margin-bottom: 8px; padding: 6px; border: 2px solid #FF6B6B; border-radius: 6px; background: rgba(255,107,107,0.1);';
+          authorColor = '#FF6B6B';
+          badge = '<span style="background: #FF6B6B; color: white; padding: 2px 6px; border-radius: 4px; font-size: 10px; font-weight: bold; margin-right: 6px;">PAID</span>';
+          messageClass = 'paid-message';
+        } else if (isMembership && !isSuperChat && !isPaidMessage) {
+          // Only apply membership styling if it's not a super chat or paid message
+          messageStyle = 'margin-bottom: 8px; padding: 6px; border: 2px solid #4CAF50; border-radius: 6px; background: rgba(76,175,80,0.1);';
+          authorColor = '#4CAF50';
+          badge = '<span style="background: #4CAF50; color: white; padding: 2px 6px; border-radius: 4px; font-size: 10px; font-weight: bold; margin-right: 6px;">MEMBER</span>';
+          messageClass = 'membership-message';
+        }
+        
+        // Debug logging
+        if (isSuperChat || isPaidMessage || isMembership || isModerator) {
+          console.log('Detected special message:', {
+            tagName: msg.tagName,
+            isSuperChat,
+            isPaidMessage,
+            isMembership,
+            isModerator,
+            authorName,
+            superChatAmount,
+            messageText: messageText.substring(0, 50)
+          });
+        }
+        
+        // Skip messages without content (usually emoji-only or system messages)
+        if (!messageText || 
+            messageText.trim() === '' || 
+            messageText.length < 2 ||
+            messageText === authorName ||
+            messageText === messageTime ||
+            messageText.match(/^\d{1,2}:\d{2}$/) ||
+            messageText.match(/^\d{1,2}:\d{2}\s*$/) ||
+            messageText.match(/^[^\w\s]*$/) || // Only special characters/emojis
+            messageText.match(/^[\s]*$/) || // Only whitespace
+            messageText === 'undefined' ||
+            messageText === 'null') {
+          return '';
+        }
+        
+        return `<div class="${messageClass}" style="${messageStyle}">
+          <div style="display: flex; align-items: center; margin-bottom: 4px; gap: 6px;">
+            <span style="color: #888; font-size: 11px;">${messageTime}</span>
+            ${badge}
+            ${authorName ? `<span style="color: ${authorColor}; font-weight: bold;">${authorName}</span>` : ''}
+            ${superChatAmount ? `<span style="color: #FFD700; font-weight: bold;">${superChatAmount}</span>` : ''}
+          </div>
           <span style="color: white;">${messageText}</span>
         </div>`;
       }).join('');
