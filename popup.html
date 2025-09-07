@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <style>
+    body {
+      width: 300px;
+      padding: 15px;
+      font-family: Arial, sans-serif;
+      background-color: #f5f5f5;
+    }
+    
+    .header {
+      text-align: center;
+      margin-bottom: 15px;
+      color: #333;
+    }
+    
+    .control-group {
+      margin-bottom: 15px;
+    }
+    
+    label {
+      display: block;
+      margin-bottom: 5px;
+      font-weight: bold;
+      color: #555;
+    }
+    
+    input[type="range"] {
+      width: 100%;
+      margin-bottom: 5px;
+    }
+    
+    input[type="number"] {
+      width: 60px;
+      padding: 3px;
+      border: 1px solid #ccc;
+      border-radius: 3px;
+    }
+    
+    .checkbox-group {
+      display: flex;
+      align-items: center;
+      margin-bottom: 10px;
+    }
+    
+    .checkbox-group input[type="checkbox"] {
+      margin-right: 8px;
+    }
+    
+    .button-group {
+      display: flex;
+      gap: 10px;
+    }
+    
+    button {
+      flex: 1;
+      padding: 8px;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+      font-weight: bold;
+    }
+    
+    .toggle-btn {
+      background-color: #4CAF50;
+      color: white;
+    }
+    
+    .toggle-btn.disabled {
+      background-color: #f44336;
+    }
+    
+    .reset-btn {
+      background-color: #2196F3;
+      color: white;
+    }
+    
+    .status {
+      text-align: center;
+      margin-top: 10px;
+      padding: 5px;
+      border-radius: 3px;
+      font-size: 12px;
+    }
+    
+    .status.active {
+      background-color: #d4edda;
+      color: #155724;
+    }
+    
+    .status.inactive {
+      background-color: #f8d7da;
+      color: #721c24;
+    }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <h3>YouTube Chat Overlay</h3>
+  </div>
+  
+  <div class="control-group">
+    <div class="checkbox-group">
+      <input type="checkbox" id="enableOverlay">
+      <label for="enableOverlay">Enable Chat Overlay</label>
+    </div>
+  </div>
+  
+  <div class="control-group">
+    <label for="opacity">Background Opacity: <span id="opacityValue">0.8</span></label>
+    <input type="range" id="opacity" min="0.1" max="1" step="0.1" value="0.8">
+  </div>
+  
+  <div class="control-group">
+    <label for="width">Width: <span id="widthValue">400</span>px</label>
+    <input type="range" id="width" min="200" max="800" step="10" value="400">
+  </div>
+  
+  <div class="control-group">
+    <label for="height">Height: <span id="heightValue">600</span>px</label>
+    <input type="range" id="height" min="200" max="800" step="10" value="600">
+  </div>
+  
+  <div class="control-group">
+    <label for="positionX">Position X: <span id="positionXValue">20</span>px</label>
+    <input type="range" id="positionX" min="0" max="1000" step="10" value="20">
+  </div>
+  
+  <div class="control-group">
+    <label for="positionY">Position Y: <span id="positionYValue">20</span>px</label>
+    <input type="range" id="positionY" min="0" max="1000" step="10" value="20">
+  </div>
+  
+  <div class="button-group">
+    <button id="toggleBtn" class="toggle-btn">Enable Overlay</button>
+    <button id="resetBtn" class="reset-btn">Reset</button>
+  </div>
+  
+  <div id="status" class="status inactive">Overlay disabled</div>
+  
+  <script src="popup.js"></script>
+</body>
+</html>
