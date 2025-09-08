@@ -10,7 +10,9 @@ chrome.runtime.onInstalled.addListener(function(details) {
       width: 400,
       height: 600,
       positionX: 20,
-      positionY: 20
+      positionY: 20,
+      chatIntervalMs: 500,
+      paused: false
     });
   }
 });
