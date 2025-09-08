@@ -1,17 +1,21 @@
 # YouTube Live Chat Overlay Extension
 
-Chrome extension to display chat overlay when watching YouTube live stream in fullscreen.
+Chrome extension that displays a non-intrusive live chat overlay while watching YouTube videos in fullscreen. The overlay is configurable, supports per-user blocking, and adapts to the video play/pause state.
 
 ## Features
 
-- Display chat overlay when in fullscreen mode
-- **Drag overlay** to move position
-- **Resize overlay** by dragging corner
-- **Direct settings** on overlay (no popup needed)
-- Adjust background opacity of overlay
-- Change size and position of chat box
-- Auto-update chat messages
-- Transparent interface with dark background
+- Show chat overlay in fullscreen
+- Drag to move, resize via bottom-right handle
+- Overlay settings panel (on the overlay header)
+  - Background opacity
+  - Width and height
+  - Polling interval (ms)
+  - Reset to defaults
+- Pause-aware scanning (auto-stops when the video is paused; resumes on play)
+- Click a chat message to block that author (inline, no exit from fullscreen)
+- Persistent blocked users list (view/unblock from popup)
+- Simplified popup: Enable/Disable overlay, Reset, and Blocked users list
+- Stores settings in `chrome.storage.sync`
 
 ## Installation
 
@@ -23,22 +27,24 @@ Chrome extension to display chat overlay when watching YouTube live stream in fu
 
 ## Usage
 
-1. Visit YouTube and open a live stream
-2. Click extension icon on toolbar
-3. Enable "Chat Overlay" in popup
-4. Enter fullscreen to see overlay
-5. **Adjust directly on overlay:**
-   - **Drag header** to move overlay
-   - **Drag bottom-right corner** to resize
-   - **Click ⚙ button** to open settings:
-     - Background opacity (0.1 - 1.0)
-     - Width (200 - 800px)
-     - Height (200 - 800px)
-     - Reset to default
+1. Install and enable the extension
+2. Open a YouTube video (live or replay with chat)
+3. Open the extension popup
+   - Toggle "Enable Overlay"
+   - Optionally review/unblock users in the Blocked users list
+4. Go fullscreen to see the overlay
+5. On the overlay header, click "Settings" to adjust:
+   - Opacity, width, height
+   - Polling interval (ms)
+   - Reset to defaults
+6. Click on a chat message (author or message area) to open an inline Block/Cancel prompt
+   - Choose Block to hide all future messages from that author
 
-## Keyboard Shortcuts
+## Popup
 
-- `Ctrl+Shift+O`: Toggle overlay on/off
+- Enable Overlay: turns the overlay on/off for the current page
+- Reset Overlay: restores default size, position, opacity, polling interval, clears paused state and blocked users
+- Blocked users: shows all blocked authors; use Unblock to remove
 
 ## File Structure
 
@@ -51,21 +57,21 @@ Chrome extension to display chat overlay when watching YouTube live stream in fu
 
 ## Notes
 
-- Extension only works on YouTube
-- Chat overlay only displays in fullscreen mode
-- Some live streams may not support chat reading due to security settings
-- Extension automatically saves settings and restores on restart
+- Works on YouTube pages only
+- Overlay displays in fullscreen; it auto-hides when not in fullscreen
+- Some chats embedded in cross-origin iframes may have restricted access
+- All settings (including blocked users) are saved and restored via `chrome.storage.sync`
 
 ## Troubleshooting
 
-If overlay doesn't display:
-1. Check extension is enabled
-2. Refresh YouTube page
-3. Check console for errors
-4. Try disabling/enabling extension
+If the overlay does not display:
+1. Ensure the extension is enabled and the popup toggle is on
+2. Refresh the YouTube page after enabling
+3. Ensure the video is in fullscreen
+4. Check DevTools console for errors on the YouTube tab
 
 ## Version
 
-- Version: 1.0
+- Version: 1.1
 - Compatible: Chrome Manifest V3
-- Support: YouTube Live Chat
+- Supports: YouTube Chat (live and replay where accessible)
