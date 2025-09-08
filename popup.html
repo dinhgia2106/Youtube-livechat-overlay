@@ -102,6 +102,47 @@
       color: var(--muted);
       font-size: 12px;
     }
+
+    .section-title {
+      margin-top: 14px;
+      margin-bottom: 8px;
+      font-size: 13px;
+      color: var(--muted);
+      border-top: 1px solid var(--border);
+      padding-top: 10px;
+    }
+
+    .blocked-list {
+      max-height: 160px;
+      overflow-y: auto;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 6px;
+      background: #0b1220;
+    }
+
+    .blocked-item {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 6px 8px;
+      border-radius: 6px;
+      margin-bottom: 6px;
+      background: #111827;
+      border: 1px solid #1f2937;
+      font-size: 12px;
+    }
+
+    .blocked-item:last-child { margin-bottom: 0; }
+
+    .btn-unblock {
+      background: #1f2937;
+      color: #93c5fd;
+      border: 1px solid #374151;
+      padding: 4px 8px;
+      border-radius: 6px;
+      cursor: pointer;
+    }
   </style>
   </head>
   <body>
@@ -116,6 +157,9 @@
       </div>
       <button id="resetBtn" class="btn btn-danger">Reset Overlay</button>
       <div id="status" class="status">Overlay disabled</div>
+
+      <div class="section-title">Blocked users</div>
+      <div id="blockedList" class="blocked-list"></div>
     </div>
     <script src="popup.js"></script>
   </body>

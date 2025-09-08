@@ -10,6 +10,7 @@ let settings = {
   chatIntervalMs: 500,
   paused: false
 };
+let blockedAuthors = [];
 
 // Initialize extension
 function init() {
@@ -22,7 +23,8 @@ function init() {
     'positionX',
     'positionY',
     'chatIntervalMs',
-    'paused'
+    'paused',
+    'blockedAuthors'
   ], function(result) {
     settings = {
       overlayEnabled: result.overlayEnabled || false,
@@ -34,6 +36,7 @@ function init() {
       chatIntervalMs: typeof result.chatIntervalMs === 'number' ? result.chatIntervalMs : 500,
       paused: !!result.paused
     };
+    blockedAuthors = Array.isArray(result.blockedAuthors) ? result.blockedAuthors : [];
     
     if (settings.overlayEnabled) {
       createOverlay();
@@ -131,6 +134,21 @@ function createOverlay() {
     font-size: 13px;
     line-height: 1.4;
   `;
+  
+  // Click to block author
+  chatContainer.addEventListener('click', function(e) {
+    const authorEl = e.target.closest('[data-author]');
+    const containerEl = e.target.closest('[data-msg-container]');
+    let author = '';
+    if (authorEl) {
+      author = authorEl.getAttribute('data-author') || '';
+    } else if (containerEl) {
+      author = containerEl.getAttribute('data-author') || '';
+    }
+    if (!author) return;
+    if (blockedAuthors.includes(author)) return;
+    showBlockPrompt(author, containerEl || authorEl);
+  });
   
   // Add close button functionality
   header.querySelector('#overlay-close').addEventListener('click', function() {
@@ -969,6 +987,11 @@ function startChatMonitoring() {
             break;
           }
         }
+
+        // Skip if author is blocked
+        if (authorName && blockedAuthors.includes(authorName)) {
+          return '';
+        }
         
         function escapeRegex(s) {
           return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
@@ -1232,11 +1255,11 @@ function startChatMonitoring() {
           });
         }
         
-        return `<div class="${messageClass}" style="${messageStyle}">
+        return `<div class="${messageClass}" style="${messageStyle}" data-msg-container="1" data-author="${authorName ? authorName.replace(/"/g,'&quot;') : ''}">
           <div style="display: flex; align-items: center; margin-bottom: 4px; gap: 6px;">
             <span style="color: #888; font-size: 11px;">${messageTime}</span>
             ${badge}
-            ${authorName ? `<span style="color: ${authorColor}; font-weight: bold;">${authorName}</span>` : ''}
+            ${authorName ? `<span style="color: ${authorColor}; font-weight: bold;" data-author="${authorName.replace(/"/g,'&quot;')}">${authorName}</span>` : ''}
             ${superChatAmount ? `<span style="color: #FFD700; font-weight: bold;">${superChatAmount}</span>` : ''}
           </div>
           <span style="color: white;">${messageText}</span>
@@ -1387,6 +1410,67 @@ function bindVideoPauseListeners() {
   } catch (e) {
     // ignore
   }
+}
+
+// Non-intrusive block prompt inside overlay
+function showBlockPrompt(author, anchorEl) {
+  try {
+    if (!overlay) return;
+    // Remove existing prompt if any
+    const existing = overlay.querySelector('#overlay-block-prompt');
+    if (existing) existing.remove();
+    
+    const rect = (anchorEl && anchorEl.getBoundingClientRect) ? anchorEl.getBoundingClientRect() : overlay.getBoundingClientRect();
+    const overlayRect = overlay.getBoundingClientRect();
+    const prompt = document.createElement('div');
+    prompt.id = 'overlay-block-prompt';
+    prompt.style.cssText = `
+      position: absolute;
+      left: ${Math.max(8, Math.min(rect.left - overlayRect.left, overlay.offsetWidth - 180 - 8))}px;
+      top: ${Math.max(40, Math.min(rect.top - overlayRect.top + 20, overlay.offsetHeight - 80))}px;
+      width: 180px;
+      background: rgba(0,0,0,0.9);
+      border: 1px solid rgba(255,255,255,0.2);
+      border-radius: 8px;
+      padding: 10px;
+      z-index: 1000001;
+      font-size: 12px;
+      color: #fff;
+    `;
+    prompt.innerHTML = `
+      <div style="margin-bottom: 8px;">Block messages from <strong>${author.replace(/</g,'&lt;')}</strong>?</div>
+      <div style="display:flex; gap:8px; justify-content:flex-end;">
+        <button id="block-cancel" style="background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.2); color: #fff; padding: 4px 8px; border-radius: 4px; cursor: pointer;">Cancel</button>
+        <button id="block-confirm" style="background: rgba(239,68,68,0.2); border: 1px solid rgba(239,68,68,0.6); color: #fecaca; padding: 4px 8px; border-radius: 4px; cursor: pointer;">Block</button>
+      </div>
+    `;
+    overlay.appendChild(prompt);
+    
+    const cleanup = function() {
+      if (prompt && prompt.parentNode) prompt.parentNode.removeChild(prompt);
+      document.removeEventListener('click', outsideHandler, true);
+    };
+    const outsideHandler = function(ev) {
+      if (!prompt.contains(ev.target)) {
+        cleanup();
+      }
+    };
+    setTimeout(() => document.addEventListener('click', outsideHandler, true), 0);
+    
+    prompt.querySelector('#block-cancel').addEventListener('click', function(ev) {
+      ev.stopPropagation();
+      cleanup();
+    });
+    prompt.querySelector('#block-confirm').addEventListener('click', function(ev) {
+      ev.stopPropagation();
+      cleanup();
+      if (!blockedAuthors.includes(author)) blockedAuthors.push(author);
+      chrome.storage.sync.set({ blockedAuthors: blockedAuthors });
+      if (overlay && typeof overlay.chatTick === 'function') {
+        overlay.chatTick();
+      }
+    });
+  } catch (e) {}
 }
 
 // Initialize when page loads
