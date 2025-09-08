@@ -38,7 +38,7 @@ function init() {
     };
     blockedAuthors = Array.isArray(result.blockedAuthors) ? result.blockedAuthors : [];
     
-    if (settings.overlayEnabled) {
+    if (settings.overlayEnabled && window === window.top) {
       createOverlay();
     }
   });
@@ -68,7 +68,7 @@ function handleFullscreenChange() {
                          document.mozFullScreenElement || 
                          document.msFullscreenElement);
   
-  if (isFullscreen && settings.overlayEnabled) {
+  if (isFullscreen && settings.overlayEnabled && window === window.top) {
     showOverlay();
   } else {
     hideOverlay();
@@ -417,15 +417,23 @@ function addSettingsFunctionality() {
       restartChatInterval();
     });
     
-    // Close settings when clicking outside
+    // Close settings when clicking outside (robust against panel removal)
     setTimeout(() => {
-      document.addEventListener('click', function closeSettings(e) {
-        if (!settingsPanel.contains(e.target) && e.target !== settingsBtn) {
-          settingsPanel.remove();
-          settingsPanel = null;
+      const panelRef = settingsPanel;
+      function closeSettings(e) {
+        // If overlay or panel no longer exists, cleanup listener
+        if (!overlay || !panelRef || !panelRef.parentNode) {
+          document.removeEventListener('click', closeSettings);
+          return;
+        }
+        const clickedSettingsBtn = (e.target === settingsBtn) || (settingsBtn && settingsBtn.contains && settingsBtn.contains(e.target));
+        if (!panelRef.contains(e.target) && !clickedSettingsBtn) {
+          if (panelRef.parentNode) panelRef.parentNode.removeChild(panelRef);
+          if (settingsPanel === panelRef) settingsPanel = null;
           document.removeEventListener('click', closeSettings);
         }
-      });
+      }
+      document.addEventListener('click', closeSettings);
     }, 100);
   });
 }
@@ -520,9 +528,7 @@ function startChatMonitoring() {
       console.log('Dropdown not visible, looking for chat dropdown button...');
       
       // First, try to find the chat container to limit search scope
-      const chatContainer = document.querySelector('ytd-live-chat-frame') || 
-                           document.querySelector('#chatframe') || 
-                           document.querySelector('#chat');
+      const chatContainer = document.querySelector('ytd-live-chat-frame, #chatframe, #chat, ytd-live-chat-renderer, yt-live-chat-renderer');
       
       if (chatContainer) {
         console.log('Found chat container, searching within it...');
@@ -644,10 +650,10 @@ function startChatMonitoring() {
       
       // Try to find dropdown button by looking for buttons near chat elements
       console.log('Trying to find dropdown button by context...');
-      const chatElements = document.querySelectorAll('ytd-live-chat-frame, #chatframe, #chat');
+      const chatElements = document.querySelectorAll('ytd-live-chat-frame, #chatframe, #chat, ytd-live-chat-renderer, yt-live-chat-renderer');
       for (const chatEl of chatElements) {
         // Look for buttons within or near chat elements
-        const nearbyButtons = chatEl.querySelectorAll('button, tp-yt-paper-menu-button, tp-yt-paper-button, [role="button"]');
+        const nearbyButtons = chatEl.querySelectorAll('button, tp-yt-paper-menu-button, tp-yt-paper-button, [role="button"], yt-dropdown-menu, tp-yt-paper-dropdown-menu');
         for (const btn of nearbyButtons) {
           if (btn.offsetParent !== null) {
             const buttonText = btn.textContent || btn.innerText || '';
@@ -669,6 +675,7 @@ function startChatMonitoring() {
             if ((buttonAriaLabel.includes('Chọn chế độ Trò chuyện') || 
                  buttonAriaLabel.includes('Trò chuyện trực tiếp') ||
                  buttonText.includes('Phát lại các tin nhắn') ||
+                 /chat/i.test(buttonText) ||
                  btn.classList.contains('dropdown-trigger')) &&
                 (btn.getAttribute('aria-haspopup') === 'true' || 
                  btn.getAttribute('aria-expanded') === 'false' ||
@@ -1300,6 +1307,8 @@ function startChatMonitoring() {
   let chatFound = false;
   let chatRetryCount = 0;
   const maxChatRetries = 15;
+  let liveOptionRetryCount = 0;
+  const maxLiveOptionRetries = 8;
   
   function tryAutoClickReplay() {
     if (!replayButtonClicked && retryCount < maxRetries) {
@@ -1323,7 +1332,7 @@ function startChatMonitoring() {
   }
   
   function tryAutoClickLiveChatOption() {
-    if (!liveChatOptionClicked && retryCount < maxRetries) {
+    if (!liveChatOptionClicked && (retryCount < maxRetries || liveOptionRetryCount < maxLiveOptionRetries)) {
       if (autoClickLiveChatOption()) {
         liveChatOptionClicked = true;
         console.log('Live chat option clicked successfully');
@@ -1332,12 +1341,20 @@ function startChatMonitoring() {
           parseChatMessages();
         }, 3000);
       } else {
-        console.log('Live chat option not found, retrying...');
+        liveOptionRetryCount++;
+        console.log('Live chat option not found, retrying...', liveOptionRetryCount + '/' + maxLiveOptionRetries);
+        if (liveOptionRetryCount >= maxLiveOptionRetries) {
+          console.log('Live chat option not found after max retries, proceeding anyway');
+          liveChatOptionClicked = true;
+          parseChatMessages();
+          return;
+        }
         // Retry after a delay
         setTimeout(tryAutoClickLiveChatOption, 2000);
       }
     } else if (!liveChatOptionClicked) {
       console.log('Live chat option not found after max retries, proceeding without it');
+      liveChatOptionClicked = true;
       parseChatMessages();
     }
   }
